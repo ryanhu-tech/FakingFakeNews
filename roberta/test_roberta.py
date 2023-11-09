@@ -12,12 +12,30 @@ import time
 import os
 from sklearn.metrics import f1_score, roc_auc_score
 
+# configuration
+parser = argparse.ArgumentParser()
+parser.add_argument('--max_sequence_length', default=512)
+parser.add_argument('--data_dir', default='../data/')
+parser.add_argument('--warmup_epoch', default=5, type=int)
+parser.add_argument('--max_epoch', default=30, type=int)
+parser.add_argument('--batch_size', default=2, type=int)
+parser.add_argument('--eval_batch_size', default=2, type=int)
+parser.add_argument('--accumulate_step', default=8, type=int)
+
+parser.add_argument('--model_name', default='facebook/bart-large')#roberta-large
+parser.add_argument('--use_checkpoint', default=False, type=bool)
+parser.add_argument('--checkpoint_path', default='../output/bart_large_propa20231017_191004/Epoch_2_best.pt', type=str, required=False)
+parser.add_argument('--test_dataset', default='snopes_test.jsonl', type=str, required=False) #snopes_test.jsonl or politifact_test.jsonl
+args = parser.parse_args()
+
+
+
 seed = 42
 # fix random seed
 random.seed(seed)
 np.random.seed(seed)
 torch.manual_seed(seed)
-torch.backends.cudnn.enabled = False
+torch.backends.cudnn.enabled = True
 
 # define model
 
@@ -74,39 +92,30 @@ class PropaFakeDataset(Dataset):
 
         return input_ids, attention_masks, labels
 
-# configuration
-parser = argparse.ArgumentParser()
-parser.add_argument('--max_sequence_length', default=512)
-parser.add_argument('--model_name', default='roberta-large')
-parser.add_argument('--data_dir', default='../../data/')
-parser.add_argument('--warmup_epoch', default=5, type=int)
-parser.add_argument('--max_epoch', default=30, type=int)
-parser.add_argument('--batch_size', default=2, type=int)
-parser.add_argument('--eval_batch_size', default=2, type=int)
-parser.add_argument('--accumulate_step', default=8, type=int)
 
-parser.add_argument('--checkpoint_path', required=True, type=str)
 
 timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime())
-args = parser.parse_args()
+
 
 output_dir = '/'.join(args.checkpoint_path.split('/')[:-1])
 # init model and tokenizer
 # tokenizer = AutoTokenizer.from_pretrained(args.model_name)
 model = BERTModelForClassification(args.model_name).cuda()
 
+if args.use_checkpoint == True:
+    model_path = args.checkpoint_path #這邊可以改寫成需要checkpoint 再進入
+    checkpoint = torch.load(model_path)
+    #print(checkpoint.keys())
+    model.load_state_dict(checkpoint['model'], strict=True)
+
 # init loader
 
-test_set = PropaFakeDataset(os.path.join(args.data_dir,'politifact_test.jsonl'))
+test_set = PropaFakeDataset(os.path.join(args.data_dir, args.test_dataset))
 test_loader = DataLoader(test_set, batch_size=args.eval_batch_size, shuffle=False, collate_fn=test_set.collate_fn)
+test_output_file = os.path.join(output_dir, 'test_pred.json')
 
 # define loss
 critera = nn.BCELoss()
-model_path = args.checkpoint_path
-
-checkpoint = torch.load(model_path)
-model.load_state_dict(checkpoint['model'], strict=True)    
-test_output_file = os.path.join(output_dir, 'test_pred.json')
 
 with torch.no_grad():
     model.eval()
