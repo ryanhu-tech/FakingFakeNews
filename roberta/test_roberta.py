@@ -14,7 +14,7 @@ from sklearn.metrics import f1_score, roc_auc_score
 
 # configuration
 parser = argparse.ArgumentParser()
-parser.add_argument('--max_sequence_length', default=512)
+parser.add_argument('--max_sequence_length', default=512)#原始512
 parser.add_argument('--data_dir', default='../data/')
 parser.add_argument('--warmup_epoch', default=5, type=int)
 parser.add_argument('--max_epoch', default=30, type=int)
@@ -22,9 +22,9 @@ parser.add_argument('--batch_size', default=2, type=int)
 parser.add_argument('--eval_batch_size', default=2, type=int)
 parser.add_argument('--accumulate_step', default=8, type=int)
 
-parser.add_argument('--model_name', default='facebook/bart-large')#roberta-large
-parser.add_argument('--use_checkpoint', default=False, type=bool)
-parser.add_argument('--checkpoint_path', default='../output/bart_large_propa20231017_191004/Epoch_2_best.pt', type=str, required=False)
+parser.add_argument('--model_name', default='roberta-large')#facebook/bart-large,roberta-large,facebook/bart-large-cnn
+parser.add_argument('--use_checkpoint', default=True, type=bool)
+parser.add_argument('--checkpoint_path', default='../output/roberta_large_llm_ll_nc_merged20231113_224045/Epoch_3_best.pt', type=str, required=False)
 parser.add_argument('--test_dataset', default='snopes_test.jsonl', type=str, required=False) #snopes_test.jsonl or politifact_test.jsonl
 args = parser.parse_args()
 

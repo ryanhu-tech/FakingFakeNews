@@ -47,7 +47,7 @@ class PropaFakeDataset(Dataset):
         self.tokenizer = AutoTokenizer.from_pretrained(args.model_name)
         self.data = []
         
-        for line in open(jsonl_path,'r'): #打開指定路徑的所有 JSONL 檔案
+        for line in open(jsonl_path,'r', encoding='utf-8'): #打開指定路徑的所有 JSONL 檔案
             inst = json.loads(line) #對每一行，使用 json.loads() 函數將 JSON 格式的文本轉換為 Python 的字典物件
             label = inst['label'] #獲取 JSON 對象中的 'label' 欄位的值
             inputs = self.tokenizer(inst['txt'], max_length=args.max_sequence_length, padding="max_length", truncation=True)
@@ -82,16 +82,17 @@ class PropaFakeDataset(Dataset):
 
 # configuration
 parser = argparse.ArgumentParser()
-parser.add_argument('--max_sequence_length', default=512, type=int)
-parser.add_argument('--model_name', default='facebook/bart-large') #原始roberta-large
-#parser.add_argument('--checkpoint_path', default='../bert2bert_cnn_daily_mail/pytorch_model.bin', type=str, required=False)
-parser.add_argument('--data_dir', default='../data/')
+parser.add_argument('--max_sequence_length', default=512, type=int) #原始512
+parser.add_argument('--model_name', default='roberta-large') #原始roberta-large.  facebook/bart-large
+#parser.add_argument('--checkpoint_path', default='../bert2bert_cnn_daily_mail/pytorch_model.bin', type=str, required=False) #原始的沒這個
+parser.add_argument('--data_dir', default='../prop_data/name_calling_random_seed_1/')
+parser.add_argument('--data_name', default="name_calling_random_seed_1")
 parser.add_argument('--warmup_epoch', default=5, type=int) #原本是5，主要目的是在訓練的早期階段，讓學習率保持較小的值，然後逐漸增加，以幫助模型更穩定地收斂到合適的權重
 parser.add_argument('--max_epoch', default=30, type=int)#原本是30
 parser.add_argument('--batch_size', default=2, type=int)#原本是2
 parser.add_argument('--eval_batch_size', default=2, type=int)
 parser.add_argument('--accumulate_step', default=8, type=int) #原本是8 用於控制梯度累積的參數，主要用於處理內存問題、提高訓練穩定性以及控制訓練時間
-parser.add_argument('--output_dir', default='../output/', required=False) #雖然過程不會存在這，但沒設定default會出錯
+parser.add_argument('--output_dir', default='../output/', required=False) #設定Ture，表示執行時要給路徑參數
 
 timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime())
 args = parser.parse_args()
@@ -99,10 +100,12 @@ args = parser.parse_args()
 if not os.path.exists(args.output_dir):
     os.makedirs(args.output_dir)
 
-output_dir = os.path.join(args.output_dir, timestamp)
+output_dir = os.path.join(args.output_dir, args.model_name + "_" + args.data_name + timestamp)
 os.makedirs(output_dir)
+
 # init model and tokenizer
 # tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+#print(torch.cuda.is_available()) 確認庫CUDA是否有運作
 model = BERTModelForClassification(args.model_name).cuda()
 #print(model.state_dict())
 
@@ -155,14 +158,13 @@ schedule = get_linear_schedule_with_warmup(optimizer,
                                            num_training_steps=batch_num*args.max_epoch)
 
 best_dev_accuracy = 0
+
 model_path = os.path.join(output_dir,'best.pt')
 for epoch in range(args.max_epoch):
     training_loss = 0
     model.train()
-    for batch_idx, (input_ids, attn_mask, labels) in enumerate(tqdm(train_loader)):        
-        
 
-        
+    for batch_idx, (input_ids, attn_mask, labels) in enumerate(tqdm(train_loader)):
         outputs = model(input_ids, attention_mask=attn_mask).view(-1)
 
         # loss
